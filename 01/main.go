@@ -28,19 +28,25 @@ func main() {
 
 	var httpData []byte
 	dup := make(map[uint32]struct{})
-	// blindly take all the packets and combine, ignoring duplicates
+
 	for _, pkt := range f.Packets {
-		sn := pkt.TransportLayer.(*TCP).SequenceNumber
+		tcp := pkt.TransportLayer.(*TCP)
+
+		if tcp.Flags.SYN() {
+			continue
+		}
+
+		sn := tcp.SequenceNumber
 		if _, ok := dup[sn]; ok {
 			continue
 		}
 		dup[sn] = struct{}{}
 
-		if pkt.TransportLayer.(*TCP).AcknowledgmentNumber != 1588273846 {
-			continue
-		}
-
 		httpData = append(httpData, pkt.ApplicationLayer...)
+
+		if tcp.Flags.FIN() {
+			break
+		}
 	}
 
 	resIdx := bytes.Index(httpData, []byte("\r\n\r\n"))

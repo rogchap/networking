@@ -141,13 +141,47 @@ func (d DataOffsetAndNSFlag) DataOffset() uint8 {
 	return uint8(d) & 0xF0 >> 4 * 4
 }
 
+type TCPFlags uint8
+
+func (t TCPFlags) FIN() bool {
+	return t&1 == 1
+}
+
+func (t TCPFlags) SYN() bool {
+	return (t>>1)&1 == 1
+}
+
+func (t TCPFlags) RST() bool {
+	return (t>>2)&1 == 1
+}
+
+func (t TCPFlags) PSH() bool {
+	return (t>>3)&1 == 1
+}
+
+func (t TCPFlags) ACK() bool {
+	return (t>>4)&1 == 1
+}
+
+func (t TCPFlags) URG() bool {
+	return (t>>5)&1 == 1
+}
+
+func (t TCPFlags) ECE() bool {
+	return (t>>6)&1 == 1
+}
+
+func (t TCPFlags) CWR() bool {
+	return (t>>7)&1 == 1
+}
+
 type TCP struct {
 	SourcePort           uint16
 	DestinationPort      uint16
 	SequenceNumber       uint32
 	AcknowledgmentNumber uint32
 	DataOffsetAndFlags   DataOffsetAndNSFlag
-	Flags                uint8
+	Flags                TCPFlags
 	WindowSize           uint16
 	Checksum             uint16
 	UrgentPointer        uint16
