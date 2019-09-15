@@ -1,3 +1,3 @@
-# Bradfield School of Computer Science
-## Computer Networking
+# Computer Networking
+## Bradfield School of Computer Science
 
