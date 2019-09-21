@@ -1,11 +1,29 @@
 package main
 
+import (
+	"bytes"
+	"encoding/binary"
+	"strings"
+)
+
 type Message struct {
 	header      Header
 	questions   []Question
 	answers     []ResourceRecord
 	authorities []ResourceRecord
-	aditional   []ResourceRecord
+	additional  []ResourceRecord
+}
+
+func (m Message) Marshall() []byte {
+	b := m.header.Marshall()
+
+	for _, q := range m.questions {
+		b = append(b, q.Marshall()...)
+	}
+
+	// Skiping other parts as not needed to construct a query
+
+	return b
 }
 
 type Opcode int
@@ -88,10 +106,44 @@ type Header struct {
 	arcount uint16
 }
 
+func (h Header) Marshall() []byte {
+	b := &bytes.Buffer{}
+	binary.Write(b, binary.BigEndian, h.id)
+
+	flags := uint16(h.opcode)<<11 | uint16(h.rcode&0xF)
+
+	if h.rd {
+		flags |= 1 << 8
+	}
+	// TODO: Set the other flags in the same way
+	binary.Write(b, binary.BigEndian, flags)
+	binary.Write(b, binary.BigEndian, h.qdcount)
+	binary.Write(b, binary.BigEndian, h.ancount)
+	binary.Write(b, binary.BigEndian, h.nscount)
+	binary.Write(b, binary.BigEndian, h.arcount)
+
+	return b.Bytes()
+}
+
 type Question struct {
 	qname  string
 	qtype  Qtype
 	qclass Qclass
+}
+
+func (q Question) Marshall() []byte {
+	b := &bytes.Buffer{}
+
+	names := strings.Split(q.qname, ".")
+	for _, n := range names {
+		qname := []byte(n)
+		binary.Write(b, binary.BigEndian, uint8(len(qname)))
+		binary.Write(b, binary.BigEndian, qname)
+	}
+	binary.Write(b, binary.BigEndian, uint8(0))
+	binary.Write(b, binary.BigEndian, uint16(q.qtype))
+	binary.Write(b, binary.BigEndian, uint16(q.qclass))
+	return b.Bytes()
 }
 
 type ResourceRecord struct {

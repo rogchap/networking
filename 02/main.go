@@ -23,4 +23,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	if err := digger.close(); err != nil {
+		panic(err)
+	}
 }
