@@ -10,31 +10,26 @@ import (
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-type digger struct {
+type Digger struct {
 	fd      int // socket file discriptor
-	srcaddr unix.Sockaddr
 	dstaddr unix.Sockaddr
 }
 
-func (d *digger) init() error {
+func (d *Digger) Init() error {
 	var err error
 	if d.fd, err = unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, unix.IPPROTO_UDP); err != nil {
 		return fmt.Errorf("unable to create socket: %w", err)
 	}
 
-	d.srcaddr = &unix.SockaddrInet4{}
-	/*	if err = unix.Bind(d.fd, d.srcaddr); err != nil {
-			return fmt.Errorf("unable to bind to socket: %w", err)
-		}
-	*/
+	// TODO configure what DNS server we want; this defaults to 1.1.1.1
 	d.dstaddr = &unix.SockaddrInet4{
 		Port: 53,
-		Addr: [4]byte{0x8, 0x8, 0x8, 0x8},
+		Addr: [4]byte{0x1, 0x1, 0x1, 0x1},
 	}
 	return nil
 }
 
-func (d *digger) close() error {
+func (d *Digger) Close() error {
 	return unix.Close(d.fd)
 }
 
@@ -44,7 +39,7 @@ func generateID() uint16 {
 
 func askQuestion(host string, qtype Qtype) Message {
 	return Message{
-		header: Header{
+		header: &Header{
 			id:      generateID(),
 			rd:      true,
 			qdcount: 1,
@@ -59,21 +54,21 @@ func askQuestion(host string, qtype Qtype) Message {
 	}
 }
 
-func (d *digger) dig(host string) error {
+func (d *Digger) Dig(host string) (*Message, error) {
 
 	msg := askQuestion(host, Qtype(A))
 
 	if err := unix.Sendto(d.fd, msg.Marshall(), 0, d.dstaddr); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 1500 bytes is the size of an Enternet frame
 	b := make([]byte, 1500)
 	if _, _, err := unix.Recvfrom(d.fd, b, 0); err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Printf("% x\n", b)
-
-	return nil
+	var parser Parser
+	parser.Init(b)
+	return parser.Parse()
 }

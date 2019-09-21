@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -14,17 +15,19 @@ func main() {
 		}
 	}
 
-	var digger digger
-	if err := digger.init(); err != nil {
+	var digger Digger
+	defer digger.Close()
+
+	if err := digger.Init(); err != nil {
 		panic(err)
 	}
 
-	err := digger.dig(host)
+	msg, err := digger.Dig(host)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := digger.close(); err != nil {
-		panic(err)
+	for _, an := range msg.answers {
+		fmt.Printf("%s\t%d\t%s\t%s\t%s\n", an.name, an.ttl, an.class, an.typ, an.rdata)
 	}
 }

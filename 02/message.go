@@ -1,13 +1,17 @@
+//go:generate stringer -type=Type,Class
+
 package main
 
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"net"
 	"strings"
 )
 
 type Message struct {
-	header      Header
+	header      *Header
 	questions   []Question
 	answers     []ResourceRecord
 	authorities []ResourceRecord
@@ -72,7 +76,7 @@ const (
 	AXFR Qtype = iota + 252
 	MAILB
 	MAILA
-	QSTAR // * All records
+	ANY // * All records
 )
 
 type Class int
@@ -87,7 +91,7 @@ const (
 type Qclass Class
 
 const (
-	CSTAR Qclass = 255 // * any class
+	CANY Qclass = 255 // * any class
 )
 
 type Header struct {
@@ -146,11 +150,31 @@ func (q Question) Marshall() []byte {
 	return b.Bytes()
 }
 
+type RData interface {
+	fmt.Stringer
+	rDataNode()
+}
+
+type IPv4Address [4]byte
+
+func (i IPv4Address) String() string {
+	return net.IPv4(i[0], i[1], i[2], i[3]).String()
+}
+
+type ARecord struct {
+	Addr IPv4Address
+}
+
+func (*ARecord) rDataNode() {}
+func (a *ARecord) String() string {
+	return a.Addr.String()
+}
+
 type ResourceRecord struct {
 	name     string
 	typ      Type
 	class    Class
 	ttl      uint32
 	rdlength uint16
-	rdata    []byte // This may be better as an interface
+	rdata    RData
 }
