@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -10,22 +12,26 @@ import (
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-type Digger struct {
-	fd      int // socket file discriptor
-	dstaddr unix.Sockaddr
+var qtypes = map[string]Qtype{
+	"A":  Qtype(A),
+	"NS": Qtype(NS),
 }
 
-func (d *Digger) Init() error {
+type Digger struct {
+	fd      int // socket file discriptor
+	dstaddr *unix.SockaddrInet4
+}
+
+func (d *Digger) Init(server string) error {
 	var err error
 	if d.fd, err = unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, unix.IPPROTO_UDP); err != nil {
 		return fmt.Errorf("unable to create socket: %w", err)
 	}
 
-	// TODO configure what DNS server we want; this defaults to 1.1.1.1
-	d.dstaddr = &unix.SockaddrInet4{
-		Port: 53,
-		Addr: [4]byte{0x1, 0x1, 0x1, 0x1},
-	}
+	// quick way to parse an IPv4 address
+	ip := net.ParseIP(server).To4()
+	d.dstaddr = &unix.SockaddrInet4{Port: 53}
+	copy(d.dstaddr.Addr[:], ip)
 	return nil
 }
 
@@ -54,18 +60,39 @@ func askQuestion(host string, qtype Qtype) Message {
 	}
 }
 
-func (d *Digger) Dig(host string) (*Message, error) {
+func (d *Digger) Dig(host, qtype string) (*Message, error) {
+	qt, ok := qtypes[qtype]
+	if !ok {
+		qt = Qtype(A)
+	}
 
-	msg := askQuestion(host, Qtype(A))
-
+	msg := askQuestion(host, qt)
 	if err := unix.Sendto(d.fd, msg.Marshall(), 0, d.dstaddr); err != nil {
 		return nil, err
 	}
 
+	done := make(chan struct{}, 1)
+	recvErr := make(chan error, 1)
+
 	// 1500 bytes is the size of an Enternet frame
 	b := make([]byte, 1500)
-	if _, _, err := unix.Recvfrom(d.fd, b, 0); err != nil {
-		return nil, err
+
+	go func() {
+		if _, _, err := unix.Recvfrom(d.fd, b, 0); err != nil {
+			recvErr <- err
+			return
+		}
+		done <- struct{}{}
+	}()
+
+	select {
+	case err := <-recvErr:
+		if err != nil {
+			return nil, err
+		}
+	case <-time.After(5 * time.Second):
+		return nil, errors.New("connection timed out")
+	case <-done:
 	}
 
 	var parser Parser
