@@ -13,8 +13,9 @@ import (
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 var qtypes = map[string]Qtype{
-	"A":  Qtype(A),
-	"NS": Qtype(NS),
+	"A":   Qtype(A),
+	"NS":  Qtype(NS),
+	"TXT": Qtype(TXT),
 }
 
 type Digger struct {

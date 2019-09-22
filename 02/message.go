@@ -170,6 +170,24 @@ func (a *ARecord) String() string {
 	return a.Addr.String()
 }
 
+type NSRecord struct {
+	Name string
+}
+
+func (*NSRecord) rDataNode() {}
+func (n *NSRecord) String() string {
+	return n.Name
+}
+
+type TXTRecord struct {
+	Text string
+}
+
+func (*TXTRecord) rDataNode() {}
+func (t *TXTRecord) String() string {
+	return fmt.Sprintf("%q", t.Text)
+}
+
 type ResourceRecord struct {
 	name     string
 	typ      Type

@@ -88,6 +88,18 @@ func (p *Parser) parseARecord() *ARecord {
 	return &ar
 }
 
+func (p *Parser) parseNSRecord() *NSRecord {
+	var ns NSRecord
+	ns.Name = p.parseDomainName()
+	return &ns
+}
+
+func (p *Parser) parseTXTRecord(l uint16) *TXTRecord {
+	var t TXTRecord
+	t.Text = string(p.nextNOctets(int(l)))
+	return &t
+}
+
 func (p *Parser) parseResourceRecord() ResourceRecord {
 	var rr ResourceRecord
 	rr.name = p.parseDomainName()
@@ -99,6 +111,10 @@ func (p *Parser) parseResourceRecord() ResourceRecord {
 	switch rr.typ {
 	case A:
 		rr.rdata = p.parseARecord()
+	case NS:
+		rr.rdata = p.parseNSRecord()
+	case TXT:
+		rr.rdata = p.parseTXTRecord(rr.rdlength)
 	default:
 		panic("rdata type not implemented")
 	}
