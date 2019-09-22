@@ -7,7 +7,9 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: go run . [@dns-server] [q-type] host\n")
+	fmt.Fprint(os.Stderr, "usage:\tgo run . [@dns-server] [q-type] host\n")
+	fmt.Fprint(os.Stderr, "where:\tdns-server\tis the IPv4 address of a DNS server [default: 1.1.1.1]\n")
+	fmt.Fprint(os.Stderr, "\tq-type\t\tis one of (A, NS, MX, TXT) [default: A]\n")
 	os.Exit(1)
 }
 
