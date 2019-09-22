@@ -3,7 +3,7 @@
 ```bash
 usage: go run . [@dns-server] [q-type] host
 where:  dns-server  is the IPv4 address of a DNS server [default: 1.1.1.1]  
-        q-type      is one of (A, NS, MX, TXT) [default: A]
+        q-type      is one of (A, NS, SOA, MX, TXT) [default: A]
 ```
 
 ### Example
