@@ -188,6 +188,31 @@ func (t *TXTRecord) String() string {
 	return fmt.Sprintf("%q", t.Text)
 }
 
+type SOARecord struct {
+	MName   string
+	RName   string
+	Serial  uint32
+	Refresh uint32
+	Retry   uint32
+	Expire  uint32
+	Minimum uint32
+}
+
+func (*SOARecord) rDataNode() {}
+func (s *SOARecord) String() string {
+	return fmt.Sprintf("%s %s %d %d %d %d %d\n", s.MName, s.RName, s.Serial, s.Refresh, s.Retry, s.Expire, s.Minimum)
+}
+
+type MXRecord struct {
+	Preference uint16
+	Exchange   string
+}
+
+func (*MXRecord) rDataNode() {}
+func (m *MXRecord) String() string {
+	return fmt.Sprintf("%d %s", m.Preference, m.Exchange)
+}
+
 type ResourceRecord struct {
 	name     string
 	typ      Type

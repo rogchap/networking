@@ -16,6 +16,8 @@ var qtypes = map[string]Qtype{
 	"A":   Qtype(A),
 	"NS":  Qtype(NS),
 	"TXT": Qtype(TXT),
+	"SOA": Qtype(SOA),
+	"MX":  Qtype(MX),
 }
 
 type Digger struct {

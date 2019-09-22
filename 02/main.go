@@ -11,6 +11,10 @@ func usage() {
 	os.Exit(1)
 }
 
+func printRR(rr ResourceRecord) {
+	fmt.Fprintf(os.Stdout, "%s\t%d\t%s\t%s\t%s\n", rr.name, rr.ttl, rr.class, rr.typ, rr.rdata)
+}
+
 func main() {
 	args := os.Args[1:]
 	lenArgs := len(args)
@@ -47,7 +51,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, an := range msg.answers {
-		fmt.Printf("%s\t%d\t%s\t%s\t%s\n", an.name, an.ttl, an.class, an.typ, an.rdata)
+	for idx, rr := range msg.answers {
+		if idx == 0 {
+			fmt.Println(";; ANSWER SECTION:")
+		}
+		printRR(rr)
+	}
+	for idx, rr := range msg.authorities {
+		if idx == 0 {
+			fmt.Println(";; AUTHORITY SECTION:")
+		}
+		printRR(rr)
+	}
+	for idx, rr := range msg.additional {
+		if idx == 0 {
+			fmt.Println(";; ADDITIONAL SECTION:")
+		}
+		printRR(rr)
 	}
 }

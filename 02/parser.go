@@ -2,19 +2,19 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
+	"os"
 	"strings"
 )
 
 type Parser struct {
 	src    []byte
 	offset int
-	names  map[int]string // message compression lookup
 }
 
 func (p *Parser) Init(src []byte) {
 	p.src = src
 	p.offset = 0
-	p.names = make(map[int]string)
 }
 
 func (p *Parser) nextOctet() uint8 {
@@ -58,20 +58,26 @@ func (p *Parser) parseHeader() (*Header, error) {
 
 func (p *Parser) parseDomainName() string {
 	var sb strings.Builder
-	offset := p.offset
 	for o := p.nextOctet(); o != 0; o = p.nextOctet() {
 		n := o &^ 0xc0
 		if o&0xc0 == 0xc0 {
+			// deal with message compression pointer
 			dnOffset := binary.BigEndian.Uint16([]byte{n, p.nextOctet()})
-			sb.WriteString(p.names[int(dnOffset)])
+			offset := p.offset
+			p.offset = int(dnOffset)
+			sb.WriteString(p.parseDomainName())
+			p.offset = offset
 			break
 		}
 		sb.Write(p.nextNOctets(int(n)))
 		sb.WriteRune('.')
 	}
-	dn := sb.String()
-	p.names[offset] = dn
-	return dn
+
+	// handle root case
+	if sb.Len() == 0 {
+		sb.WriteRune('.')
+	}
+	return sb.String()
 }
 
 func (p *Parser) parseQuestion() Question {
@@ -100,6 +106,25 @@ func (p *Parser) parseTXTRecord(l uint16) *TXTRecord {
 	return &t
 }
 
+func (p *Parser) parseSOARecord() *SOARecord {
+	var s SOARecord
+	s.MName = p.parseDomainName()
+	s.RName = p.parseDomainName()
+	s.Serial = binary.BigEndian.Uint32(p.nextNOctets(4))
+	s.Refresh = binary.BigEndian.Uint32(p.nextNOctets(4))
+	s.Retry = binary.BigEndian.Uint32(p.nextNOctets(4))
+	s.Expire = binary.BigEndian.Uint32(p.nextNOctets(4))
+	s.Minimum = binary.BigEndian.Uint32(p.nextNOctets(4))
+	return &s
+}
+
+func (p *Parser) parseMXRecord() *MXRecord {
+	var mx MXRecord
+	mx.Preference = p.nextTwoOctets()
+	mx.Exchange = p.parseDomainName()
+	return &mx
+}
+
 func (p *Parser) parseResourceRecord() ResourceRecord {
 	var rr ResourceRecord
 	rr.name = p.parseDomainName()
@@ -115,8 +140,12 @@ func (p *Parser) parseResourceRecord() ResourceRecord {
 		rr.rdata = p.parseNSRecord()
 	case TXT:
 		rr.rdata = p.parseTXTRecord(rr.rdlength)
+	case SOA:
+		rr.rdata = p.parseSOARecord()
+	case MX:
+		rr.rdata = p.parseMXRecord()
 	default:
-		panic("rdata type not implemented")
+		fmt.Fprintf(os.Stderr, "rdata type %q not implemented\n", rr.typ)
 	}
 	return rr
 }
@@ -135,6 +164,14 @@ func (p *Parser) Parse() (*Message, error) {
 
 	for i := uint16(0); i < msg.header.ancount; i++ {
 		msg.answers = append(msg.answers, p.parseResourceRecord())
+	}
+
+	for i := uint16(0); i < msg.header.nscount; i++ {
+		msg.authorities = append(msg.authorities, p.parseResourceRecord())
+	}
+
+	for i := uint16(0); i < msg.header.arcount; i++ {
+		msg.additional = append(msg.additional, p.parseResourceRecord())
 	}
 
 	return &msg, nil
