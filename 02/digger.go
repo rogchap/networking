@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"golang.org/x/sys/unix"
+	"syscall" // deprecated since 1.3 can use golang.org/x/sys
 )
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -22,24 +22,24 @@ var qtypes = map[string]Qtype{
 
 type Digger struct {
 	fd      int // socket file discriptor
-	dstaddr *unix.SockaddrInet4
+	dstaddr *syscall.SockaddrInet4
 }
 
 func (d *Digger) Init(server string) error {
 	var err error
-	if d.fd, err = unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, unix.IPPROTO_UDP); err != nil {
+	if d.fd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP); err != nil {
 		return fmt.Errorf("unable to create socket: %w", err)
 	}
 
 	// quick way to parse an IPv4 address
 	ip := net.ParseIP(server).To4()
-	d.dstaddr = &unix.SockaddrInet4{Port: 53}
+	d.dstaddr = &syscall.SockaddrInet4{Port: 53}
 	copy(d.dstaddr.Addr[:], ip)
 	return nil
 }
 
 func (d *Digger) Close() error {
-	return unix.Close(d.fd)
+	return syscall.Close(d.fd)
 }
 
 func generateID() uint16 {
@@ -70,7 +70,7 @@ func (d *Digger) Dig(host, qtype string) (*Message, error) {
 	}
 
 	msg := askQuestion(host, qt)
-	if err := unix.Sendto(d.fd, msg.Marshall(), 0, d.dstaddr); err != nil {
+	if err := syscall.Sendto(d.fd, msg.Marshall(), 0, d.dstaddr); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +81,7 @@ func (d *Digger) Dig(host, qtype string) (*Message, error) {
 	b := make([]byte, 1500)
 
 	go func() {
-		if _, _, err := unix.Recvfrom(d.fd, b, 0); err != nil {
+		if _, _, err := syscall.Recvfrom(d.fd, b, 0); err != nil {
 			recvErr <- err
 			return
 		}
