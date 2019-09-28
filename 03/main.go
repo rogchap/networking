@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,45 +34,39 @@ func handler(fd int, sa syscall.Sockaddr) {
 		panic(err)
 	}
 
+	res := make([]byte, 1500)
+	if _, _, err := syscall.Recvfrom(nfd, res, syscall.MSG_WAITALL); err != nil {
+		panic(err)
+	}
 	// respond to the caller
-	if err := syscall.Sendto(fd, b, 0, sa); err != nil {
+	if err := syscall.Sendto(fd, res, 0, sa); err != nil {
 		panic(err)
 	}
 }
 
-func main() {
-
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+func proxy(rw ResponseWriter, r *Request) {
+	// TODO change req Host to be that of end server
+	var c Client
+	res, err := c.Do(r)
 	if err != nil {
-		panic(err)
-	}
-	defer syscall.Close(fd)
-
-	sa := &syscall.SockaddrInet4{
-		Port: 8080,
-		Addr: [...]byte{0, 0, 0, 0},
+		fmt.Fprintf(os.Stderr, "error in client: %v", err)
+		return
 	}
 
-	if err := syscall.Bind(fd, sa); err != nil {
-		panic(err)
-	}
+	// TODO I should copy the headers from client res to rw
+	rw.Write(res.Body())
+}
 
-	if err := syscall.Listen(fd, 1); err != nil {
-		panic(err)
-	}
+func main() {
+	var s Server
+	s.Handler = proxy
 
-	go func() {
-		for {
-			nfd, dsa, err := syscall.Accept(fd)
-			if err != nil {
-				panic(err)
-			}
-			go handler(nfd, dsa)
-		}
-	}()
+	go s.Serve(8080)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	<-stop
 
+	s.Close()
+	os.Exit(0)
 }
